@@ -1,3 +1,5 @@
+#!/usr/bin/env python3
+
 import click, re, sqlite3 
 import os, tempfile, subprocess, requests, datetime, csv
 
@@ -33,7 +35,7 @@ def download(channel_url, channel_id):
         print("Error finding channel id try --channel-id option")
 
 
-@click.command( help='search [channel id] [search text]')
+@click.command( help='search [channel id or (partial) name] [search text]')
 @click.argument('channel_id', required=True)
 @click.argument('search_text', required=True)
 def search(channel_id, search_text):

@@ -78,11 +78,22 @@ def search_channel(channel_id, text):
     con = sqlite3.connect('subtitles.db')  
     cur = con.cursor()  
 
-    cur.execute(f"SELECT * FROM Subtitles WHERE video_id IN (SELECT video_id FROM Videos WHERE channel_id = ?) AND text LIKE ?", (channel_id, '%'+text+'%'))
+    cur.execute(f"SELECT channel_id FROM Channels WHERE channel_id = ?", (channel_id,))
+    cid = cur.fetchone()
+    if not cid:
+        cur.execute(f"SELECT channel_id FROM Channels WHERE channel_name LIKE ?",
+                    ('%'+channel_id+'%',))
+        cid = cur.fetchone()
+    if cid: cid = cid[0]
+    
+    cur.execute(
+        f"SELECT * FROM Subtitles "
+        "WHERE video_id IN (SELECT video_id FROM Videos WHERE channel_id = ?) "
+        "AND text LIKE ?", (cid, '%'+text+'%'))
+
     res = cur.fetchall()
     con.close()
     return res
-
 
 def get_title_from_db(sub_id):
     con = sqlite3.connect('subtitles.db')
