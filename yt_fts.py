@@ -26,11 +26,12 @@ def list():
 @click.command( help='download [channel url]')
 @click.argument('channel_url', required=True)
 @click.option('--channel-id', default=None, help='Optional channel id to override the one from the url')
-def download(channel_url, channel_id):
+@click.option('--playlists', is_flag=True,  help='Download channel playlists')
+def download(channel_url, channel_id, playlists):
     if channel_id is None:
         channel_id = get_channel_id(channel_url)
     if channel_id:
-        download_channel(channel_id)
+        download_channel(channel_id, playlists)
     else:
         print("Error finding channel id try --channel-id option")
 
@@ -76,13 +77,14 @@ cli.add_command(export)
 
 
 
-def download_channel(channel_id):
+def download_channel(channel_id, playlists):
     print("Downloading channel")
+    ext = "playlists" if playlists else "videos"
     with tempfile.TemporaryDirectory() as tmp_dir:
         print('Saving vtt files to', tmp_dir)
 
         channel_name = get_channel_name(channel_id)
-        channel_url = f"https://www.youtube.com/channel/{channel_id}/videos"
+        channel_url = f"https://www.youtube.com/channel/{channel_id}/{ext}"
         subprocess.run([
             "yt-dlp",
             "-o", f"{tmp_dir}/%(id)s.%(ext)s",  
