@@ -27,6 +27,7 @@ def list():
 @click.argument('channel_url', required=True)
 @click.option('--channel-id', default=None, help='Optional channel id to override the one from the url')
 @click.option('--language', default="en", help='Language of the subtitles to download')
+@click.option('--playlists', is_flag=True,  help='Download channel playlists')
 def download(channel_url, channel_id, language, playlists):
     handle_reject_consent_cookie(channel_url)
     if channel_id is None:
