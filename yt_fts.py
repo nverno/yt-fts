@@ -26,12 +26,13 @@ def list():
 @click.command( help='download [channel url]')
 @click.argument('channel_url', required=True)
 @click.option('--channel-id', default=None, help='Optional channel id to override the one from the url')
-@click.option('--playlists', is_flag=True,  help='Download channel playlists')
-def download(channel_url, channel_id, playlists):
+@click.option('--language', default="en", help='Language of the subtitles to download')
+def download(channel_url, channel_id, language, playlists):
+    handle_reject_consent_cookie(channel_url)
     if channel_id is None:
         channel_id = get_channel_id(channel_url)
     if channel_id:
-        download_channel(channel_id, playlists)
+        download_channel(channel_id, language, playlists)
     else:
         print("Error finding channel id try --channel-id option")
 
@@ -77,7 +78,23 @@ cli.add_command(export)
 
 
 
-def download_channel(channel_id, playlists):
+def handle_reject_consent_cookie(channel_url):
+    r = s.get(channel_url)
+    if "https://consent.youtube.com" in r.url:
+        m = re.search(r"<input type=\"hidden\" name=\"bl\" value=\"([^\"]*)\"", r.text)
+        if m:
+            data = {
+                "gl":"DE",
+                "pc":"yt",
+                "continue":channel_url,
+                "x":"6",
+                "bl":m.group(1),
+                "hl":"de",
+                "set_eom":"true"
+            }
+            s.post("https://consent.youtube.com/save", data=data)
+
+def download_channel(channel_id, language, playlists):
     print("Downloading channel")
     ext = "playlists" if playlists else "videos"
     with tempfile.TemporaryDirectory() as tmp_dir:
@@ -91,6 +108,7 @@ def download_channel(channel_id, playlists):
             "--write-auto-sub",  
             "--convert-subs", "vtt",  
             "--skip-download",  
+            "--sub-langs", f"{language},-live_chat",
             channel_url
         ])
         add_channel_info(channel_id, channel_name, channel_url)
@@ -162,7 +180,7 @@ def parse_vtt(file_path):
 
 
 def get_vid_title(vid_url):
-    res = requests.get(vid_url)
+    res = s.get(vid_url)
     if res.status_code == 200:
         html = res.text
         soup = BeautifulSoup(html, 'html.parser')
@@ -174,7 +192,7 @@ def get_vid_title(vid_url):
 
  
 def get_channel_id(url):
-    res = requests.get(url)
+    res = s.get(url)
     if res.status_code == 200:
         html = res.text
         channel_id = re.search('channelId":"(.{24})"', html).group(1)
@@ -185,14 +203,23 @@ def get_channel_id(url):
 
 def get_channel_name(channel_id):
 
-    res = requests.get(f"https://www.youtube.com/channel/{channel_id}/videos")
+    res = s.get(f"https://www.youtube.com/channel/{channel_id}/videos")
 
     if res.status_code == 200:
 
         html = res.text
         soup = BeautifulSoup(html, 'html.parser')
         script = soup.find('script', type='application/ld+json')
-        data = json.loads(script.string)
+
+        # Hot fix for channels with special characters in the name
+        try:
+            print("Trying to parse json normally")
+            data = json.loads(script.string)
+        except:
+            print("json parse failed retrying with escaped backslashes")
+            script = script.string.replace('\\', '\\\\')
+            data = json.loads(script)
+
         channel_name = data['itemListElement'][0]['item']['name']
         print(channel_name)
         return channel_name 
@@ -274,4 +301,5 @@ def time_to_secs(time_str):
 
 
 if __name__ == '__main__':
+    s = requests.session()
     cli()
